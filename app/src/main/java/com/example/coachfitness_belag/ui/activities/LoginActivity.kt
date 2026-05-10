@@ -2,125 +2,115 @@ package com.example.coachfitness_belag.ui.activities
 
 import android.content.Intent
 import android.os.Bundle
-import android.widget.TextView
-import android.widget.Toast
+import android.view.View
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.ViewModelProvider
 import com.example.coachfitness_belag.R
-import com.google.android.material.button.MaterialButton
-import com.google.android.material.textfield.TextInputEditText
-import com.google.android.material.textfield.TextInputLayout
-import kotlinx.coroutines.launch
+import com.example.coachfitness_belag.data.api.RetrofitInstance
+import com.example.coachfitness_belag.data.repository.AppRepository
+import com.example.coachfitness_belag.ui.viewmodel.MainViewModel
+import com.example.coachfitness_belag.utils.TokenManager
 
 class LoginActivity : AppCompatActivity() {
 
-    private lateinit var etEmail: TextInputEditText
-    private lateinit var etPassword: TextInputEditText
-    private lateinit var tilEmail: TextInputLayout
-    private lateinit var tilPassword: TextInputLayout
-    private lateinit var btnLogin: MaterialButton
+    private lateinit var viewModel: MainViewModel
+    private lateinit var etEmail: EditText
+    private lateinit var etPassword: EditText
+    private lateinit var btnLogin: Button
     private lateinit var tvRegister: TextView
+    private lateinit var progressBar: ProgressBar
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
+        // Check if already logged in - if so, go to scanner for profiling
+        if (TokenManager.isLoggedIn()) {
+            navigateToScanner()
+            return
+        }
 
         initViews()
-
-
-        setupListeners()
+        setupViewModel()
+        setupObservers()
+        setupClickListeners()
     }
 
     private fun initViews() {
         etEmail = findViewById(R.id.etEmail)
         etPassword = findViewById(R.id.etPassword)
-        tilEmail = findViewById(R.id.tilEmail)
-        tilPassword = findViewById(R.id.tilPassword)
         btnLogin = findViewById(R.id.btnLogin)
         tvRegister = findViewById(R.id.tvRegister)
+        progressBar = findViewById(R.id.progressBar)
     }
 
-    private fun setupListeners() {
-
-        btnLogin.setOnClickListener {
-            val email = etEmail.text.toString().trim()
-            val password = etPassword.text.toString().trim()
-            performLogin(email, password)
-        }
-
-
-        tvRegister.setOnClickListener {
-            val intent = Intent(this, RegisterActivity::class.java)
-            startActivity(intent)
-        }
+    private fun setupViewModel() {
+        val repository = AppRepository(RetrofitInstance.apiService)
+        viewModel = ViewModelProvider(this, object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                return MainViewModel(repository) as T
+            }
+        }).get(MainViewModel::class.java)
     }
 
-    private fun performLogin(email: String, password: String) {
-        // Validation des champs
-        if (!validateInputs(email, password)) {
-            return
+    private fun setupObservers() {
+        viewModel.isLoading.observe(this) { isLoading ->
+            progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+            btnLogin.isEnabled = !isLoading
         }
 
+        viewModel.isLoggedIn.observe(this) { isLoggedIn ->
+            if (isLoggedIn) {
+                // After successful login, go to Morphology Scanner
+                navigateToScanner()
+            }
+        }
 
-        btnLogin.isEnabled = false
-        btnLogin.text = "CONNEXION..."
-
-
-        lifecycleScope.launch {
-            try {
-
-                simulateLogin(email, password)
-
-            } catch (e: Exception) {
-                showError("Erreur de connexion : ${e.message}")
-            } finally {
-                btnLogin.isEnabled = true
-                btnLogin.text = "SE CONNECTER"
+        viewModel.errorMessage.observe(this) { error ->
+            error?.let {
+                Toast.makeText(this, it, Toast.LENGTH_LONG).show()
+                viewModel.clearError()
             }
         }
     }
 
-    private fun validateInputs(email: String, password: String): Boolean {
-        var isValid = true
+    private fun setupClickListeners() {
+        btnLogin.setOnClickListener {
+            val email = etEmail.text.toString().trim()
+            val password = etPassword.text.toString().trim()
 
-        // Validation email
-        if (email.isEmpty()) {
-            tilEmail.error = "L'email est requis"
-            isValid = false
-        } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            tilEmail.error = "Email invalide"
-            isValid = false
-        } else {
-            tilEmail.error = null
+            if (validateInputs(email, password)) {
+                viewModel.login(email, password)
+            }
         }
 
-
-        if (password.isEmpty()) {
-            tilPassword.error = "Le mot de passe est requis"
-            isValid = false
-        } else if (password.length < 6) {
-            tilPassword.error = "Au moins 6 caractères"
-            isValid = false
-        } else {
-            tilPassword.error = null
+        tvRegister.setOnClickListener {
+            startActivity(Intent(this, RegisterActivity::class.java))
         }
-
-        return isValid
     }
 
-    // Simulation de connexion (à remplacer par votre API réelle)
-    private fun simulateLogin(email: String, password: String) {
-        // Simuler une requête réseau
-        // Thread.sleep(1500) // Simule un délai réseau (Attention: Ne pas faire ça sur le thread UI)
-
-        // Exemple de validation simple (À SUPPRIMER)
-        if (email == "test@example.com" && password == "password123") {
-            showSuccess("Connexion réussie !")
-            navigateToDashboard()
-        } else {
-            showError("Email ou mot de passe incorrect")
+    private fun validateInputs(email: String, password: String): Boolean {
+        if (email.isEmpty()) {
+            etEmail.error = "Email requis"
+            return false
         }
+        if (password.isEmpty()) {
+            etPassword.error = "Mot de passe requis"
+            return false
+        }
+        if (password.length < 6) {
+            etPassword.error = "Mot de passe trop court"
+            return false
+        }
+        return true
+    }
+
+    private fun navigateToScanner() {
+        val intent = Intent(this, MorphologyScannerActivity::class.java)
+        startActivity(intent)
+        finish()
     }
 
     private fun navigateToDashboard() {
@@ -128,13 +118,5 @@ class LoginActivity : AppCompatActivity() {
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         startActivity(intent)
         finish()
-    }
-
-    private fun showError(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-    }
-
-    private fun showSuccess(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 }

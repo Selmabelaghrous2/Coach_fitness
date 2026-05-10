@@ -7,64 +7,38 @@ import androidx.lifecycle.viewModelScope
 import com.example.coachfitness_belag.data.models.Exercise
 import com.example.coachfitness_belag.data.models.User
 import com.example.coachfitness_belag.data.repository.AppRepository
+import com.example.coachfitness_belag.utils.TokenManager
 import kotlinx.coroutines.launch
 
 class MainViewModel(
     private val repository: AppRepository
 ) : ViewModel() {
-
     private val _isLoading = MutableLiveData<Boolean>()
     val isLoading: LiveData<Boolean> = _isLoading
-
+    
     private val _exercises = MutableLiveData<List<Exercise>>()
     val exercises: LiveData<List<Exercise>> = _exercises
-
-    private val _selectedExercise = MutableLiveData<Exercise?>()
-    val selectedExercise: LiveData<Exercise?> = _selectedExercise
-
-    private val _authToken = MutableLiveData<String?>()
-    val authToken: LiveData<String?> = _authToken
-
-    private val _isLoggedIn = MutableLiveData<Boolean>()
-    val isLoggedIn: LiveData<Boolean> = _isLoggedIn
-
-
+    
     private val _userProfile = MutableLiveData<User?>()
     val userProfile: LiveData<User?> = _userProfile
-
+    
     private val _errorMessage = MutableLiveData<String?>()
     val errorMessage: LiveData<String?> = _errorMessage
-
-    private val _selectedCategory = MutableLiveData("all")
-    val selectedCategory: LiveData<String> = _selectedCategory
+    
+    private val _isLoggedIn = MutableLiveData(TokenManager.isLoggedIn())
+    val isLoggedIn: LiveData<Boolean> = _isLoggedIn
 
     fun login(email: String, password: String) {
         _isLoading.value = true
         viewModelScope.launch {
-            val result = repository.login(email, password)
-            result.onSuccess { token ->
-                _authToken.value = token
+            repository.login(email, password).onSuccess { response ->
+                TokenManager.saveToken(response.token)
+                TokenManager.saveUserData(response.userId.toString(), response.email, response.name)
                 _isLoggedIn.value = true
                 _errorMessage.value = null
-                getUserProfile()  // Charger le profil après login
-            }.onFailure { exception ->
-                _errorMessage.value = exception.message ?: "Erreur de connexion"
-                _isLoggedIn.value = false
-            }
-            _isLoading.value = false
-        }
-    }
-
-    fun register(name: String, email: String, password: String) {
-        _isLoading.value = true
-        viewModelScope.launch {
-            val result = repository.register(name, email, password)
-            result.onSuccess { token ->
-                _authToken.value = token
-                _isLoggedIn.value = true
-                _errorMessage.value = null
-            }.onFailure { exception ->
-                _errorMessage.value = exception.message ?: "Erreur d'inscription"
+            }.onFailure { e ->
+                // This will show exactly what failed (Timeout, 404, etc.)
+                _errorMessage.value = "Login Error: ${e.localizedMessage}"
             }
             _isLoading.value = false
         }
@@ -73,51 +47,71 @@ class MainViewModel(
     fun loadAllExercises() {
         _isLoading.value = true
         viewModelScope.launch {
-            val result = repository.getAllExercises()
-            result.onSuccess { exercises ->
+            repository.getAllExercises().onSuccess { exercises ->
                 _exercises.value = exercises
                 _errorMessage.value = null
-            }.onFailure { exception ->
-                _errorMessage.value = exception.message ?: "Erreur chargement exercices"
+            }.onFailure { e ->
+                _errorMessage.value = "Load Exercises Error: ${e.localizedMessage}"
             }
             _isLoading.value = false
         }
     }
 
-    fun loadExercisesByCategory(category: String) {
-        _selectedCategory.value = category
+    fun clearError() {
+        _errorMessage.value = null
+    }
+
+    fun register(name: String, email: String, password: String, level: String?) {
         _isLoading.value = true
         viewModelScope.launch {
-            if (category == "all") {
-                loadAllExercises()
-            } else {
-                val result = repository.getExercisesByCategory(category)
-                result.onSuccess { exercises ->
-                    _exercises.value = exercises
+            repository.register(name, email, password, level).onSuccess { response ->
+                if (response.token != null) {
+                    TokenManager.saveToken(response.token)
+                    TokenManager.saveUserData(response.userId?.toString() ?: "", email, name)
+                    _isLoggedIn.value = true
                     _errorMessage.value = null
-                }.onFailure { exception ->
-                    _errorMessage.value = exception.message ?: "Erreur chargement catégorie"
+                } else {
+                    _errorMessage.value = response.message ?: "Erreur d'inscription"
                 }
-                _isLoading.value = false
+            }.onFailure { e ->
+                _errorMessage.value = "Register Error: ${e.localizedMessage}"
             }
+            _isLoading.value = false
+        }
+    }
+    
+    fun logout() {
+        viewModelScope.launch {
+            val token = TokenManager.getToken()
+            if (token != null) {
+                repository.logout(token)
+            }
+            TokenManager.clear()
+            _isLoggedIn.value = false
+            _exercises.value = emptyList()
+            _userProfile.value = null
         }
     }
 
-    fun selectExercise(exercise: Exercise) {
-        _selectedExercise.value = exercise
-    }
-
-    fun clearSelectedExercise() {
-        _selectedExercise.value = null
+    fun loadExercisesByCategory(category: String) {
+        _isLoading.value = true
+        viewModelScope.launch {
+            repository.getExercisesByCategory(category).onSuccess { exercises ->
+                _exercises.value = exercises
+                _errorMessage.value = null
+            }.onFailure { e ->
+                _errorMessage.value = "Category Error: ${e.localizedMessage}"
+            }
+            _isLoading.value = false
+        }
     }
 
     fun getUserProfile() {
         viewModelScope.launch {
-            val result = repository.getUserProfile()
-            result.onSuccess { user ->
+            repository.getUserProfile().onSuccess { user ->
                 _userProfile.value = user
-            }.onFailure { exception ->
-                _errorMessage.value = exception.message ?: "Erreur chargement profil"
+            }.onFailure { e ->
+                _errorMessage.value = "Profile Error: ${e.localizedMessage}"
             }
         }
     }
@@ -125,34 +119,13 @@ class MainViewModel(
     fun updateUserProfile(user: User) {
         _isLoading.value = true
         viewModelScope.launch {
-            val result = repository.updateUserProfile(user)
-            result.onSuccess { updatedUser ->
+            repository.updateUserProfile(user).onSuccess { updatedUser ->
                 _userProfile.value = updatedUser
                 _errorMessage.value = null
-            }.onFailure { exception ->
-                _errorMessage.value = exception.message ?: "Erreur mise à jour profil"
+            }.onFailure { e ->
+                _errorMessage.value = "Update Profile Error: ${e.localizedMessage}"
             }
             _isLoading.value = false
         }
-    }
-
-    fun logout() {
-        _authToken.value = null
-        _isLoggedIn.value = false
-        _userProfile.value = null
-        _exercises.value = emptyList()
-    }
-
-    fun clearError() {
-        _errorMessage.value = null
-    }
-
-
-    fun getExercisesByDifficulty(difficulty: String): List<Exercise> {
-        return _exercises.value?.filter { it.difficulty == difficulty } ?: emptyList()
-    }
-
-    fun getTotalCaloriesBurned(): Int {
-        return _exercises.value?.sumOf { it.calories } ?: 0
     }
 }

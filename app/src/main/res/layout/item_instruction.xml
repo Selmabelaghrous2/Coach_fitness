@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="8dp">
+
+    <TextView
+        android:id="@+id/tvStepNumber"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:background="@drawable/bg_circle_red"
+        android:gravity="center"
+        android:text="1"
+        android:textColor="@color/white"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvInstruction"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_gravity="center_vertical"
+        android:text="Instruction detail here"
+        android:textColor="@color/gray_lighter"
+        android:textSize="14sp" />
+
+</LinearLayout>

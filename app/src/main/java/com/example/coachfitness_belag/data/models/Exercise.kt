@@ -1,5 +1,8 @@
 package com.example.coachfitness_belag.data.models
 
+import com.google.gson.annotations.SerializedName
+import java.io.Serializable
+
 data class Exercise(
     val id: Int,
     val name: String,
@@ -7,10 +10,15 @@ data class Exercise(
     val duration: Int,          // durée en minutes
     val calories: Int,          // calories brûlées
     val difficulty: String,     // "facile", "moyen", "difficile"
+    
+    @SerializedName("image_url")
     val imageUrl: String? = null,
+    
     val description: String,
-    val instructions: List<String> = emptyList()
-)
+    
+    // Changed from List<String> to String to match the backend response
+    val instructions: String
+) : Serializable
 
 // Exercice avec progression (pour historique)
 data class ExerciseProgress(
@@ -19,7 +27,7 @@ data class ExerciseProgress(
     val duration: Int,
     val caloriesBurned: Int,
     val completed: Boolean = false
-)
+) : Serializable
 
 // Catégories d'exercices
 object ExerciseCategories {
@@ -29,14 +37,3 @@ object ExerciseCategories {
     const val STRETCHING = "stretching"
     const val HIIT = "hiit"
 }
-
-// Utilisateur
-data class User(
-    val id: Int,
-    val name: String,
-    val email: String,
-    val age: Int? = null,
-    val weight: Double? = null,  // poids en kg
-    val height: Double? = null,   // taille en cm
-    val fitnessLevel: String? = null  // "débutant", "intermédiaire", "avancé"
-)

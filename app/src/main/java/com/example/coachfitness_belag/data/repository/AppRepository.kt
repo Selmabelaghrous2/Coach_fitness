@@ -1,43 +1,44 @@
 package com.example.coachfitness_belag.data.repository
 
 import com.example.coachfitness_belag.data.api.ApiService
-import com.example.coachfitness_belag.data.api.LoginRequest
-import com.example.coachfitness_belag.data.api.RegisterRequest
-import com.example.coachfitness_belag.data.models.Exercise
-import com.example.coachfitness_belag.data.models.User
+import com.example.coachfitness_belag.data.models.*
 
 class AppRepository(
     private val apiService: ApiService
 ) {
 
-
-    suspend fun login(email: String, password: String): Result<String> {
+    suspend fun login(email: String, password: String): Result<LoginResponse> {
         return try {
             val response = apiService.login(LoginRequest(email, password))
-            if (response.token.isNotEmpty()) {
-                Result.success(response.token)
-            } else {
-                Result.failure(Exception("Échec de connexion"))
-            }
+            Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    suspend fun register(name: String, email: String, password: String): Result<String> {
+    suspend fun register(name: String, email: String, password: String, level: String?): Result<RegisterResponse> {
         return try {
-            val response = apiService.register(RegisterRequest(name, email, password))
-            Result.success(response.token)
+            val response = apiService.register(RegisterRequest(name, email, password, level))
+            Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
+    suspend fun logout(token: String): Result<LogoutResponse> {
+        return try {
+            val response = apiService.logout("Bearer $token")
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     suspend fun getAllExercises(): Result<List<Exercise>> {
         return try {
-            val exercises = apiService.getAllExercises()
-            Result.success(exercises)
+            val response = apiService.getAllExercises()
+            // Le backend renvoie directement la liste [], donc on la retourne telle quelle
+            Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -54,13 +55,13 @@ class AppRepository(
 
     suspend fun getExercisesByCategory(category: String): Result<List<Exercise>> {
         return try {
-            val exercises = apiService.getExercisesByCategory(category)
-            Result.success(exercises)
+            val response = apiService.getExercisesByCategory(category)
+            // Le backend renvoie directement la liste [], donc on la retourne telle quelle
+            Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
-
 
     suspend fun getUserProfile(): Result<User> {
         return try {

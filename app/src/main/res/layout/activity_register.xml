@@ -12,6 +12,13 @@
         android:orientation="vertical"
         android:padding="28dp">
 
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:visibility="gone" />
+
         <!-- Header -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -28,7 +35,6 @@
                 android:src="@drawable/ic_arrow_back"
                 android:background="@color/surface_variant"
                 android:backgroundTint="@color/surface_variant"
-                android:tint="@color/on_surface"
                 android:layout_marginEnd="16dp"/>
 
             <TextView
@@ -40,7 +46,6 @@
                 android:layout_height="wrap_content"/>
         </LinearLayout>
 
-        <!-- Card formulaire -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -54,18 +59,33 @@
                 android:orientation="vertical"
                 android:padding="24dp">
 
+                <!-- Nom -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilName"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:hint="Nom complet"
+                    app:boxBackgroundColor="@color/surface_variant">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textPersonName"
+                        android:textColor="@color/on_surface" />
+                </com.google.android.material.textfield.TextInputLayout>
+
                 <!-- Email -->
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilEmail"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
                     android:hint="Email"
-                    app:boxBackgroundColor="@color/surface_variant"
-                    app:boxStrokeColor="@color/primary"
-                    app:hintTextColor="@color/on_surface_secondary"
-                    app:startIconDrawable="@drawable/ic_email"
-                    app:startIconTint="@color/on_surface_secondary">
+                    app:boxBackgroundColor="@color/surface_variant">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etEmail"
@@ -77,17 +97,14 @@
 
                 <!-- Mot de passe -->
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilPassword"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
                     android:hint="Mot de passe"
                     app:boxBackgroundColor="@color/surface_variant"
-                    app:boxStrokeColor="@color/primary"
-                    app:endIconMode="password_toggle"
-                    app:hintTextColor="@color/on_surface_secondary"
-                    app:startIconDrawable="@drawable/ic_lock"
-                    app:startIconTint="@color/on_surface_secondary">
+                    app:endIconMode="password_toggle">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etPassword"
@@ -103,10 +120,8 @@
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="8dp"
                     android:text="Niveau de forme"
-                    android:textColor="@color/on_surface_secondary"
-                    android:textSize="13sp" />
+                    android:textColor="@color/on_surface_secondary" />
 
-                <!-- Chips niveau -->
                 <com.google.android.material.chip.ChipGroup
                     android:id="@+id/chipGroupLevel"
                     android:layout_width="match_parent"
@@ -119,62 +134,39 @@
                         style="@style/Widget.MaterialComponents.Chip.Choice"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Débutant"
-                        android:textColor="@color/on_surface"
-                        app:checkedIconTint="@color/primary"
-                        app:chipBackgroundColor="@color/surface_variant" />
+                        android:text="Débutant" />
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chipIntermediate"
                         style="@style/Widget.MaterialComponents.Chip.Choice"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Intermédiaire"
-                        android:textColor="@color/on_surface"
-                        app:checkedIconTint="@color/primary"
-                        app:chipBackgroundColor="@color/surface_variant" />
+                        android:text="Intermédiaire" />
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chipAdvanced"
                         style="@style/Widget.MaterialComponents.Chip.Choice"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Avancé"
-                        android:textColor="@color/on_surface"
-                        app:checkedIconTint="@color/primary"
-                        app:chipBackgroundColor="@color/surface_variant" />
+                        android:text="Avancé" />
                 </com.google.android.material.chip.ChipGroup>
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnRegister"
                     android:layout_width="match_parent"
                     android:layout_height="56dp"
-                    android:layout_marginBottom="16dp"
                     android:text="CRÉER MON COMPTE"
-                    android:textColor="@color/on_surface"
-                    android:textStyle="bold"
-                    app:backgroundTint="@color/primary"
                     app:cornerRadius="12dp" />
 
-                <LinearLayout
-                    android:layout_width="match_parent"
+                <TextView
+                    android:id="@+id/tvLogin"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:gravity="center">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Déjà inscrit ? "
-                        android:textColor="@color/on_surface_secondary" />
-
-                    <TextView
-                        android:id="@+id/tvLogin"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Se connecter"
-                        android:textColor="@color/primary"
-                        android:textStyle="bold" />
-                </LinearLayout>
+                    android:layout_gravity="center"
+                    android:layout_marginTop="16dp"
+                    android:text="Déjà inscrit ? Se connecter"
+                    android:textColor="@color/primary"
+                    android:textStyle="bold" />
 
             </LinearLayout>
         </androidx.cardview.widget.CardView>

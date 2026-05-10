@@ -1,8 +1,8 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Base.Theme.Coachfitness_belag" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Base.Theme.CoachFitness" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your light theme here. -->
     </style>
 
-    <style name="Theme.Coachfitness_belag" parent="Base.Theme.Coachfitness_belag" />
+    <style name="Theme.CoachFitness" parent="Base.Theme.CoachFitness" />
 </resources>

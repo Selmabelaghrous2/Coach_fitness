@@ -1,60 +1,34 @@
 package com.example.coachfitness_belag.data.api
 
-import com.example.coachfitness_belag.data.models.Exercise
-import com.example.coachfitness_belag.data.models.User
+import com.example.coachfitness_belag.data.models.*
 import retrofit2.http.*
 
 interface ApiService {
 
     // ========== AUTHENTIFICATION ==========
-    @POST("auth/login")
-    suspend fun login(
-        @Body request: LoginRequest
-    ): LoginResponse
+    @POST("api/auth/login")
+    suspend fun login(@Body request: LoginRequest): LoginResponse
 
-    @POST("auth/register")
-    suspend fun register(
-        @Body request: RegisterRequest
-    ): LoginResponse
+    @POST("api/auth/register")
+    suspend fun register(@Body request: RegisterRequest): RegisterResponse
+
+    @POST("api/auth/logout")
+    suspend fun logout(@Header("Authorization") token: String): LogoutResponse
 
     // ========== EXERCICES ==========
-    @GET("exercises")
+    @GET("api/exercises")
     suspend fun getAllExercises(): List<Exercise>
 
-    @GET("exercises/{id}")
-    suspend fun getExerciseById(
-        @Path("id") id: Int
-    ): Exercise
+    @GET("api/exercises/{id}")
+    suspend fun getExerciseById(@Path("id") id: Int): Exercise
 
-    @GET("exercises/category/{category}")
-    suspend fun getExercisesByCategory(
-        @Path("category") category: String
-    ): List<Exercise>
+    @GET("api/exercises/category/{category}")
+    suspend fun getExercisesByCategory(@Path("category") category: String): List<Exercise>
 
-    // ========== UTILISATEURS ==========
-    @GET("users/profile")
+    // ========== UTILISATEUR ==========
+    @GET("api/users/profile")
     suspend fun getUserProfile(): User
 
-    @PUT("users/profile")
-    suspend fun updateUserProfile(
-        @Body user: User
-    ): User
+    @PUT("api/users/profile")
+    suspend fun updateUserProfile(@Body user: User): User
 }
-
-// Request and Response DTOs
-data class LoginRequest(
-    val email: String,
-    val password: String
-)
-
-data class RegisterRequest(
-    val name: String,
-    val email: String,
-    val password: String
-)
-
-data class LoginResponse(
-    val token: String,
-    val userId: Int,
-    val message: String? = null
-)

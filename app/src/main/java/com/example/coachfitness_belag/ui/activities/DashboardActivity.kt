@@ -2,124 +2,91 @@ package com.example.coachfitness_belag.ui.activities
 
 import android.content.Intent
 import android.os.Bundle
+import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.example.coachfitness_belag.R
-import kotlinx.coroutines.launch
-
+import com.example.coachfitness_belag.utils.TokenManager
 
 class DashboardActivity : AppCompatActivity() {
 
-    // Déclaration des vues
     private lateinit var tvWelcome: TextView
-    private lateinit var tvSessionCount: TextView
-    private lateinit var progressWeek: ProgressBar
     private lateinit var btnStartSession: LinearLayout
     private lateinit var btnChatbot: LinearLayout
-    private lateinit var rvRecommended: RecyclerView
-
-
+    private lateinit var btnLocation: LinearLayout
+    private lateinit var ivProfile: ImageView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_dashboard)
 
+        if (!TokenManager.isLoggedIn()) {
+            navigateToLogin()
+            return
+        }
+
         initViews()
-        setupListeners()
-        loadUserData()
-        loadRecommendedExercises()
-        loadWeeklyProgress()
+        setupHeader()
+        setupClickListeners()
+
+        if (savedInstanceState == null) {
+            val morphology = intent.getStringExtra("FILTER_MORPHOLOGY")
+            loadExerciseFragment(morphology)
+        }
     }
 
     private fun initViews() {
         tvWelcome = findViewById(R.id.tvWelcome)
-        tvSessionCount = findViewById(R.id.tvSessionCount)
-        progressWeek = findViewById(R.id.progressWeek)
         btnStartSession = findViewById(R.id.btnStartSession)
         btnChatbot = findViewById(R.id.btnChatbot)
-        rvRecommended = findViewById(R.id.rvRecommended)
-
-        /*
-        exerciseAdapter = ExerciseAdapter(exerciseList) { exercise ->
-            onExerciseClicked(exercise)
-        }
-        rvRecommended.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        rvRecommended.adapter = exerciseAdapter
-        */
+        btnLocation = findViewById(R.id.btnLocation)
+        ivProfile = findViewById(R.id.ivProfile)
     }
 
-    private fun setupListeners() {
+    private fun setupHeader() {
+        val userName = TokenManager.getUserName() ?: "Coach"
+        tvWelcome.text = "$userName !"
+    }
 
-        btnStartSession.setOnClickListener {
-            // startActivity(Intent(this, StartSessionActivity::class.java))
+    private fun loadExerciseFragment(morphology: String? = null) {
+        val fragment = ExerciseListFragment().apply {
+            arguments = Bundle().apply {
+                putString("MORPHOLOGY", morphology)
+            }
         }
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, fragment)
+            .commit()
+    }
 
+    private fun setupClickListeners() {
+        btnStartSession.setOnClickListener {
+            Toast.makeText(this, "Chargement des exercices...", Toast.LENGTH_SHORT).show()
+            loadExerciseFragment()
+        }
 
         btnChatbot.setOnClickListener {
-            // startActivity(Intent(this, ChatbotActivity::class.java))
+            val intent = Intent(this, ChatbotActivity::class.java)
+            startActivity(intent)
+        }
+
+        btnLocation.setOnClickListener {
+            val intent = Intent(this, Mapview::class.java)
+            startActivity(intent)
+        }
+
+        ivProfile.setOnClickListener {
+            val intent = Intent(this, ProfileActivity::class.java)
+            startActivity(intent)
         }
     }
 
-    private fun loadUserData() {
-
-        val sharedPref = getSharedPreferences("coach_fitness_prefs", MODE_PRIVATE)
-        val userEmail = sharedPref.getString("user_email", "Coach")
-        val userName = userEmail?.split("@")?.first() ?: "Coach"
-
-        tvWelcome.text = userName.replaceFirstChar { it.uppercase() }
-    }
-
-    private fun loadRecommendedExercises() {
-        lifecycleScope.launch {
-            try {
-
-                // val exercises = getRecommendedExercises()
-                // exerciseList.clear()
-                // exerciseList.addAll(exercises)
-                // exerciseAdapter.notifyDataSetChanged()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    private fun loadWeeklyProgress() {
-        lifecycleScope.launch {
-            try {
-
-                val sessionCount = getWeeklySessionCount()
-                tvSessionCount.text = sessionCount.toString()
-
-
-                val progress = (sessionCount * 100) / 5
-                progressWeek.progress = progress.coerceAtMost(100)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-
-    private suspend fun getWeeklySessionCount(): Int {
-
-        // Thread.sleep(300)
-
-
-        // val sessions = apiService.getUserSessions(userId)
-        // return sessions.filter { it.date.isAfter(startOfWeek) }.size
-
-        return 3
-    }
-
-
-    override fun onResume() {
-        super.onResume()
-
-        loadWeeklyProgress()
+    private fun navigateToLogin() {
+        val intent = Intent(this, LoginActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finish()
     }
 }
