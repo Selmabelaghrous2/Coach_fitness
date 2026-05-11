@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.widget.Button
@@ -22,6 +24,7 @@ import androidx.core.content.ContextCompat
 import com.example.coachfitness_belag.R
 import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
+import org.tensorflow.lite.support.common.ops.NormalizeOp
 import org.tensorflow.lite.support.image.ImageProcessor
 import org.tensorflow.lite.support.image.TensorImage
 import org.tensorflow.lite.support.image.ops.ResizeOp
@@ -38,6 +41,7 @@ class MorphologyScannerActivity : AppCompatActivity() {
     private lateinit var resultCard: View
     private lateinit var btnConfirm: Button
     private lateinit var progressBar: ProgressBar
+    private lateinit var tvInstructions: TextView
 
     private lateinit var cameraExecutor: ExecutorService
     private var interpreter: Interpreter? = null
@@ -45,6 +49,7 @@ class MorphologyScannerActivity : AppCompatActivity() {
     
     private var detectedMorphology: String? = null
     private var isProcessing = false
+    private var canAnalyze = true // Analyse immédiate
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,6 +61,7 @@ class MorphologyScannerActivity : AppCompatActivity() {
         resultCard = findViewById(R.id.resultCard)
         btnConfirm = findViewById(R.id.btnConfirm)
         progressBar = findViewById(R.id.progressBar)
+        tvInstructions = findViewById(R.id.tvInstructions)
 
         cameraExecutor = Executors.newSingleThreadExecutor()
 
@@ -68,20 +74,16 @@ class MorphologyScannerActivity : AppCompatActivity() {
         }
 
         loadModel()
+        
+        tvInstructions.text = "Analyse en cours... Tenez-vous bien devant la caméra"
 
         btnConfirm.setOnClickListener {
-            detectedMorphology?.let { morphology ->
-                val intent = Intent(this, DashboardActivity::class.java)
-                intent.putExtra("FILTER_MORPHOLOGY", morphology)
-                startActivity(intent)
-                finish()
-            }
+            redirectToExercises()
         }
     }
 
     private fun loadModel() {
         try {
-            // Note: Make sure model_unquant.tflite is in app/src/main/assets/
             val assetFileDescriptor = assets.openFd("model_unquant.tflite")
             val inputStream = FileInputStream(assetFileDescriptor.fileDescriptor)
             val fileChannel = inputStream.channel
@@ -90,10 +92,10 @@ class MorphologyScannerActivity : AppCompatActivity() {
             val modelBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
             interpreter = Interpreter(modelBuffer)
             progressBar.visibility = View.GONE
+            Log.d("Scanner", "Modèle chargé avec succès")
         } catch (e: Exception) {
-            Log.e("Scanner", "Error loading model", e)
-            // Fallback for testing if file is missing in main/assets
-            Toast.makeText(this, "Modèle non trouvé dans assets. Assurez-vous de l'avoir déplacé dans src/main/assets/", Toast.LENGTH_LONG).show()
+            Log.e("Scanner", "Erreur lors du chargement du modèle", e)
+            Toast.makeText(this, "Erreur : modèle introuvable.", Toast.LENGTH_SHORT).show()
             progressBar.visibility = View.GONE
         }
     }
@@ -102,86 +104,118 @@ class MorphologyScannerActivity : AppCompatActivity() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
 
         cameraProviderFuture.addListener({
-            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
+            try {
+                val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
 
-            val preview = Preview.Builder()
-                .build()
-                .also {
+                val preview = Preview.Builder().build().also {
                     it.setSurfaceProvider(viewFinder.surfaceProvider)
                 }
 
-            val imageAnalyzer = ImageAnalysis.Builder()
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build()
-                .also {
-                    it.setAnalyzer(cameraExecutor) { imageProxy ->
-                        if (!isProcessing) {
-                            analyzeImage(imageProxy)
-                        } else {
-                            imageProxy.close()
+                val imageAnalyzer = ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .build()
+                    .also {
+                        it.setAnalyzer(cameraExecutor) { imageProxy ->
+                            if (canAnalyze && !isProcessing) {
+                                analyzeImage(imageProxy)
+                            } else {
+                                imageProxy.close()
+                            }
                         }
                     }
+
+                // Priorité à la caméra frontale pour l'utilisateur
+                val cameraSelector = if (cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)) {
+                    CameraSelector.DEFAULT_FRONT_CAMERA
+                } else {
+                    CameraSelector.DEFAULT_BACK_CAMERA
                 }
 
-            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
-            try {
                 cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
-                    this, cameraSelector, preview, imageAnalyzer
-                )
+                cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalyzer)
             } catch (exc: Exception) {
-                Log.e("Scanner", "Use case binding failed", exc)
+                Log.e("Scanner", "Erreur CameraX", exc)
             }
-
         }, ContextCompat.getMainExecutor(this))
     }
 
     private fun analyzeImage(imageProxy: ImageProxy) {
-        val bitmap = viewFinder.bitmap
-        if (bitmap == null || interpreter == null) {
-            imageProxy.close()
-            return
-        }
-
-        isProcessing = true
-        
-        val imageProcessor = ImageProcessor.Builder()
-            .add(ResizeOp(224, 224, ResizeOp.ResizeMethod.BILINEAR))
-            .build()
-
-        var tensorImage = TensorImage(DataType.FLOAT32)
-        tensorImage.load(bitmap)
-        tensorImage = imageProcessor.process(tensorImage)
-
-        val output = Array(1) { FloatArray(labels.size) }
-        interpreter?.run(tensorImage.buffer, output)
-
-        val results = output[0]
-        val maxIdx = results.indices.maxByOrNull { results[it] } ?: -1
-
-        if (maxIdx != -1 && results[maxIdx] > 0.7f) { // Seuil de confiance 70%
-            val type = labels[maxIdx]
-            runOnUiThread {
-                showResult(type)
+        // Accès au bitmap sur le thread UI
+        runOnUiThread {
+            val bitmap = viewFinder.bitmap
+            if (bitmap == null || interpreter == null) {
+                imageProxy.close()
+                isProcessing = false
+                return@runOnUiThread
             }
-        } else {
-            isProcessing = false
-        }
 
-        imageProxy.close()
+            isProcessing = true
+
+            cameraExecutor.execute {
+                try {
+                    val imageProcessor = ImageProcessor.Builder()
+                        .add(ResizeOp(224, 224, ResizeOp.ResizeMethod.BILINEAR))
+                        .add(NormalizeOp(127.5f, 127.5f)) // Normalisation standard Teachable Machine
+                        .build()
+
+                    var tensorImage = TensorImage(DataType.FLOAT32)
+                    tensorImage.load(bitmap)
+                    tensorImage = imageProcessor.process(tensorImage)
+
+                    val output = Array(1) { FloatArray(labels.size) }
+                    interpreter?.run(tensorImage.buffer, output)
+
+                    val results = output[0]
+                    val maxIdx = results.indices.maxByOrNull { results[it] } ?: -1
+                    
+                    // Log des probabilités pour voir ce que l'IA détecte
+                    Log.d("Scanner", "Scores: Ecto=${results[0]}, Meso=${results[1]}, Endo=${results[2]}")
+
+                    // Seuil abaissé à 0.4 (40%) pour faciliter la détection
+                    if (maxIdx != -1 && results[maxIdx] > 0.4f) { 
+                        val type = labels[maxIdx]
+                        runOnUiThread {
+                            showResult(type)
+                        }
+                    } else {
+                        isProcessing = false
+                    }
+                } catch (e: Exception) {
+                    Log.e("Scanner", "Erreur analyse", e)
+                    isProcessing = false
+                } finally {
+                    imageProxy.close()
+                }
+            }
+        }
     }
 
     private fun showResult(type: String) {
+        canAnalyze = false 
         detectedMorphology = type
         resultCard.visibility = View.VISIBLE
         tvResultType.text = type
+        tvInstructions.text = "Morphologie détectée !"
         
         tvDescription.text = when(type) {
-            "Ectomorph" -> "Profil mince, métabolisme rapide. Focus sur la prise de masse (Musculation)."
-            "Mesomorph" -> "Profil athlétique, gagne facilement du muscle. Programme équilibré."
-            "Endomorph" -> "Profil plus large, métabolisme lent. Focus sur le cardio et l'endurance."
+            "Ectomorph" -> "Profil mince. Redirection vers vos exercices personnalisés..."
+            "Mesomorph" -> "Profil athlétique. Redirection vers vos exercices personnalisés..."
+            "Endomorph" -> "Profil large. Redirection vers vos exercices personnalisés..."
             else -> ""
+        }
+
+        // Redirection automatique après 2 secondes
+        Handler(Looper.getMainLooper()).postDelayed({
+            redirectToExercises()
+        }, 2000)
+    }
+
+    private fun redirectToExercises() {
+        detectedMorphology?.let { morphology ->
+            val intent = Intent(this, DashboardActivity::class.java)
+            intent.putExtra("FILTER_MORPHOLOGY", morphology)
+            startActivity(intent)
+            finish()
         }
     }
 
@@ -193,13 +227,8 @@ class MorphologyScannerActivity : AppCompatActivity() {
         requestCode: Int, permissions: Array<String>, grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_CODE_PERMISSIONS) {
-            if (allPermissionsGranted()) {
-                startCamera()
-            } else {
-                Toast.makeText(this, "Permissions non accordées.", Toast.LENGTH_SHORT).show()
-                finish()
-            }
+        if (requestCode == REQUEST_CODE_PERMISSIONS && allPermissionsGranted()) {
+            startCamera()
         }
     }
 

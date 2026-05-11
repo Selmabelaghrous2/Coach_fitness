@@ -2,21 +2,25 @@ package com.example.coachfitness_belag.ui.activities
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import com.example.coachfitness_belag.R
 import com.example.coachfitness_belag.utils.TokenManager
 
 class DashboardActivity : AppCompatActivity() {
 
     private lateinit var tvWelcome: TextView
+    private lateinit var tvProfileBadge: TextView
     private lateinit var btnStartSession: LinearLayout
     private lateinit var btnChatbot: LinearLayout
     private lateinit var btnLocation: LinearLayout
     private lateinit var ivProfile: ImageView
+    private lateinit var tvExerciseTitle: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,23 +35,54 @@ class DashboardActivity : AppCompatActivity() {
         setupHeader()
         setupClickListeners()
 
+        // Récupération de la morphologie après le scan
+        val morphology = intent.getStringExtra("FILTER_MORPHOLOGY")
+        updateUIForMorphology(morphology)
+        
         if (savedInstanceState == null) {
-            val morphology = intent.getStringExtra("FILTER_MORPHOLOGY")
             loadExerciseFragment(morphology)
         }
     }
 
     private fun initViews() {
         tvWelcome = findViewById(R.id.tvWelcome)
+        tvProfileBadge = findViewById(R.id.tvProfileBadge)
         btnStartSession = findViewById(R.id.btnStartSession)
         btnChatbot = findViewById(R.id.btnChatbot)
         btnLocation = findViewById(R.id.btnLocation)
         ivProfile = findViewById(R.id.ivProfile)
+        tvExerciseTitle = findViewById(R.id.tvExerciseTitle)
     }
 
     private fun setupHeader() {
         val userName = TokenManager.getUserName() ?: "Coach"
         tvWelcome.text = "$userName !"
+    }
+
+    private fun updateUIForMorphology(morphology: String?) {
+        if (morphology != null) {
+            tvProfileBadge.visibility = View.VISIBLE
+            tvProfileBadge.text = "Profil détecté : $morphology"
+            
+            // Personnalisation selon le type
+            when (morphology) {
+                "Ectomorph" -> {
+                    tvExerciseTitle.text = "Programme Force & Volume"
+                    tvProfileBadge.setBackgroundColor(ContextCompat.getColor(this, android.R.color.holo_blue_dark))
+                }
+                "Mesomorph" -> {
+                    tvExerciseTitle.text = "Programme Performance Athlétique"
+                    tvProfileBadge.setBackgroundColor(ContextCompat.getColor(this, android.R.color.holo_green_dark))
+                }
+                "Endomorph" -> {
+                    tvExerciseTitle.text = "Programme Cardio & Définition"
+                    tvProfileBadge.setBackgroundColor(ContextCompat.getColor(this, android.R.color.holo_red_dark))
+                }
+            }
+        } else {
+            tvProfileBadge.visibility = View.GONE
+            tvExerciseTitle.text = "Vos exercices recommandés"
+        }
     }
 
     private fun loadExerciseFragment(morphology: String? = null) {
@@ -63,23 +98,20 @@ class DashboardActivity : AppCompatActivity() {
 
     private fun setupClickListeners() {
         btnStartSession.setOnClickListener {
-            Toast.makeText(this, "Chargement des exercices...", Toast.LENGTH_SHORT).show()
-            loadExerciseFragment()
+            loadExerciseFragment() // Recharge tout
+            Toast.makeText(this, "Session démarrée", Toast.LENGTH_SHORT).show()
         }
 
         btnChatbot.setOnClickListener {
-            val intent = Intent(this, ChatbotActivity::class.java)
-            startActivity(intent)
+            startActivity(Intent(this, ChatbotActivity::class.java))
         }
 
         btnLocation.setOnClickListener {
-            val intent = Intent(this, Mapview::class.java)
-            startActivity(intent)
+            startActivity(Intent(this, Mapview::class.java))
         }
 
         ivProfile.setOnClickListener {
-            val intent = Intent(this, ProfileActivity::class.java)
-            startActivity(intent)
+            startActivity(Intent(this, ProfileActivity::class.java))
         }
     }
 

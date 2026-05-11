@@ -10,22 +10,20 @@ import android.util.Log
 
 object RetrofitInstance {
 
+    // Utilisation de l'IP du PC pour accéder au serveur depuis l'émulateur et le téléphone physique
     private const val BASE_URL = "http://192.168.11.101:8080/"
 
     private val authInterceptor = okhttp3.Interceptor { chain ->
         val originalRequest = chain.request()
         val path = originalRequest.url.encodedPath
 
-        // On n'ajoute pas le token pour les routes d'authentification
         if (path.contains("/api/auth/login") || path.contains("/api/auth/register")) {
             return@Interceptor chain.proceed(originalRequest)
         }
 
         val token = TokenManager.getToken()
         val request = if (!token.isNullOrBlank()) {
-            // S'assurer que le préfixe Bearer est correct et unique
             val authHeader = if (token.startsWith("Bearer ")) token else "Bearer $token"
-            
             originalRequest.newBuilder()
                 .header("Authorization", authHeader)
                 .build()
@@ -33,24 +31,17 @@ object RetrofitInstance {
             originalRequest
         }
         
-        val response = chain.proceed(request)
-        
-        // Log pour le débogage si 401
-        if (response.code == 401) {
-            Log.e("AuthDebug", "401 Unauthorized détecté sur: $path. Token: $token")
-        }
-        
-        response
+        chain.proceed(request)
     }
 
     private val client = OkHttpClient.Builder()
-        .addInterceptor(authInterceptor) // Ajouter le token en premier
+        .addInterceptor(authInterceptor)
         .addInterceptor(HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
-        }) // Logguer APRÈS l'ajout du header pour voir s'il est présent
-        .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS)
+        })
+        .connectTimeout(120, TimeUnit.SECONDS)
+        .readTimeout(120, TimeUnit.SECONDS)
+        .writeTimeout(120, TimeUnit.SECONDS)
         .build()
 
     private val retrofit by lazy {
