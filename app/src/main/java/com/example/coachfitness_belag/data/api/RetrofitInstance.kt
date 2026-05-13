@@ -10,13 +10,14 @@ import android.util.Log
 
 object RetrofitInstance {
 
-    // Utilisation de l'IP du PC pour accéder au serveur depuis l'émulateur et le téléphone physique
-    private const val BASE_URL = "http://192.168.11.101:8080/"
+    // Alias 10.0.2.2 : adresse spéciale pour que l'émulateur accède au localhost du PC
+    private const val BASE_URL = "http://10.0.2.2:8080/"
 
     private val authInterceptor = okhttp3.Interceptor { chain ->
         val originalRequest = chain.request()
         val path = originalRequest.url.encodedPath
 
+        // On n'ajoute pas le token pour les routes d'authentification
         if (path.contains("/api/auth/login") || path.contains("/api/auth/register")) {
             return@Interceptor chain.proceed(originalRequest)
         }
@@ -31,7 +32,14 @@ object RetrofitInstance {
             originalRequest
         }
         
-        chain.proceed(request)
+        val response = chain.proceed(request)
+        
+        // Log pour le débogage si 401
+        if (response.code == 401) {
+            Log.e("AuthDebug", "401 Unauthorized détecté sur: $path. Token: $token")
+        }
+        
+        response
     }
 
     private val client = OkHttpClient.Builder()

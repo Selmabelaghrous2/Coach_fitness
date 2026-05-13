@@ -15,8 +15,8 @@ data class ChatHistoryItem(val role: String, val content: String)
 
 class OllamaRepository {
 
-    // Mise à jour avec votre IP locale pour la connexion
-    private val baseUrl = "http://192.168.11.101:8080" 
+    // Utilisation de 10.0.2.2 pour que l'émulateur accède au PC local
+    private val baseUrl = "http://10.0.2.2:8080"
 
     private val client = OkHttpClient.Builder()
             .addInterceptor(HttpLoggingInterceptor { message -> 

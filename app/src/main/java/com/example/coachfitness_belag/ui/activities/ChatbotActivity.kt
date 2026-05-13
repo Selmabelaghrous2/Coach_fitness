@@ -6,10 +6,12 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.speech.RecognizerIntent
+import android.speech.tts.TextToSpeech
 import android.view.MenuItem
 import android.view.View
 import android.widget.EditText
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,6 +20,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.example.coachfitness_belag.R
 import com.example.coachfitness_belag.data.models.ChatMessage
 import com.example.coachfitness_belag.data.repository.ChatHistoryItem
@@ -27,7 +30,7 @@ import com.example.coachfitness_belag.utils.TokenManager
 import kotlinx.coroutines.launch
 import java.util.*
 
-class ChatbotActivity : AppCompatActivity() {
+class ChatbotActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private lateinit var rvChat: RecyclerView
     private lateinit var etMessage: EditText
@@ -35,6 +38,8 @@ class ChatbotActivity : AppCompatActivity() {
     private lateinit var btnMic: ImageButton
     private lateinit var progressBar: ProgressBar
     private lateinit var chatAdapter: ChatAdapter
+    private lateinit var ivAvatarChat: ImageView
+    private var tts: TextToSpeech? = null
     
     private val ollamaRepository = OllamaRepository()
     private val chatHistory = mutableListOf<ChatHistoryItem>()
@@ -42,11 +47,7 @@ class ChatbotActivity : AppCompatActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
-        if (isGranted) {
-            startVoiceInput()
-        } else {
-            Toast.makeText(this, "Permission micro nécessaire pour parler", Toast.LENGTH_SHORT).show()
-        }
+        if (isGranted) startVoiceInput() else Toast.makeText(this, "Permission refusée", Toast.LENGTH_SHORT).show()
     }
 
     private val speechLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -62,87 +63,34 @@ class ChatbotActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_chatbot)
-
+        tts = TextToSpeech(this, this)
         initViews()
         setupChat()
+        loadAvatar()
 
         btnSend.setOnClickListener {
             val text = etMessage.text.toString().trim()
             if (text.isNotEmpty()) sendMessage(text)
         }
+        btnMic.setOnClickListener { checkPermissionAndStartVoice() }
+    }
 
-        btnMic.setOnClickListener {
-            checkPermissionAndStartVoice()
+    private fun loadAvatar() {
+        Glide.with(this)
+            .asGif()
+            .load("file:///android_asset/avatar/myavatar.gif")
+            .into(ivAvatarChat)
+    }
+
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            tts?.language = Locale.FRENCH
+            speak("Bonjour ! Je suis votre coach. Comment puis-je vous aider aujourd'hui ?")
         }
     }
 
-    private fun checkPermissionAndStartVoice() {
-        when {
-            ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED -> {
-                startVoiceInput()
-            }
-            else -> {
-                requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            }
-        }
-    }
-
-    private fun initViews() {
-        rvChat = findViewById(R.id.rvChat)
-        etMessage = findViewById(R.id.etMessage)
-        btnSend = findViewById(R.id.btnSend)
-        btnMic = findViewById(R.id.btnMic)
-        progressBar = findViewById(R.id.progressBarChat)
-
-        val toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbarChat)
-        setSupportActionBar(toolbar)
-
-        // Activer la flèche de retour
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.setDisplayShowHomeEnabled(true)
-    }
-
-    private fun setupChat() {
-        chatAdapter = ChatAdapter()
-        val layoutManager = LinearLayoutManager(this).apply {
-            stackFromEnd = true // Les messages s'empilent par le bas
-        }
-        rvChat.layoutManager = layoutManager
-        rvChat.adapter = chatAdapter
-
-        // Scroll automatique lors de l'ajout de messages
-        chatAdapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
-            override fun onItemRangeInserted(positionStart: Int, itemCount: Int) {
-                rvChat.scrollToPosition(chatAdapter.itemCount - 1)
-            }
-        })
-
-        // Scroll automatique lors de l'apparition du clavier
-        rvChat.addOnLayoutChangeListener { _, _, _, _, bottom, _, _, _, oldBottom ->
-            if (bottom < oldBottom) {
-                rvChat.postDelayed({
-                    if (chatAdapter.itemCount > 0) {
-                        rvChat.smoothScrollToPosition(chatAdapter.itemCount - 1)
-                    }
-                }, 100)
-            }
-        }
-
-        addBotMessage("Bonjour ! Je suis votre coach. Posez votre question par texte ou par voix.")
-    }
-
-    private fun startVoiceInput() {
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "Je vous écoute...")
-        }
-        
-        try {
-            speechLauncher.launch(intent)
-        } catch (e: Exception) {
-            Toast.makeText(this, "Service vocal non disponible", Toast.LENGTH_SHORT).show()
-        }
+    private fun speak(text: String) {
+        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
     }
 
     private fun sendMessage(text: String) {
@@ -153,35 +101,61 @@ class ChatbotActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val result = ollamaRepository.sendMessage(text, chatHistory, TokenManager.getUserId() ?: "1")
             progressBar.visibility = View.GONE
-            
             result.onSuccess { response ->
                 addBotMessage(response)
+                speak(response) // Le coach répond vocalement
                 chatHistory.add(ChatHistoryItem("user", text))
                 chatHistory.add(ChatHistoryItem("assistant", response))
-            }.onFailure { e ->
-                addBotMessage("Erreur : ${e.localizedMessage}")
-            }
+            }.onFailure { e -> addBotMessage("Erreur : ${e.localizedMessage}") }
         }
     }
 
-    private fun addUserMessage(text: String) {
-        chatAdapter.addMessage(ChatMessage(text, true))
+    private fun initViews() {
+        rvChat = findViewById(R.id.rvChat)
+        etMessage = findViewById(R.id.etMessage)
+        btnSend = findViewById(R.id.btnSend)
+        btnMic = findViewById(R.id.btnMic)
+        progressBar = findViewById(R.id.progressBarChat)
+        ivAvatarChat = findViewById(R.id.ivAvatarChat)
+        setSupportActionBar(findViewById(R.id.toolbarChat))
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        supportActionBar?.setDisplayShowTitleEnabled(false)
     }
 
-    private fun addBotMessage(text: String) {
-        chatAdapter.addMessage(ChatMessage(text, false))
+    private fun setupChat() {
+        chatAdapter = ChatAdapter()
+        rvChat.layoutManager = LinearLayoutManager(this).apply { stackFromEnd = true }
+        rvChat.adapter = chatAdapter
+        addBotMessage("Bonjour ! Je suis votre coach. Posez votre question.")
+    }
+
+    private fun checkPermissionAndStartVoice() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            startVoiceInput()
+        } else {
+            requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    private fun startVoiceInput() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.FRENCH)
+        }
+        speechLauncher.launch(intent)
+    }
+
+    private fun addUserMessage(text: String) = chatAdapter.addMessage(ChatMessage(text, true))
+    private fun addBotMessage(text: String) = chatAdapter.addMessage(ChatMessage(text, false))
+
+    override fun onDestroy() {
+        tts?.stop()
+        tts?.shutdown()
+        super.onDestroy()
     }
 
     override fun onSupportNavigateUp(): Boolean {
         onBackPressedDispatcher.onBackPressed()
         return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        if (item.itemId == android.R.id.home) {
-            onBackPressedDispatcher.onBackPressed()
-            return true
-        }
-        return super.onOptionsItemSelected(item)
     }
 }

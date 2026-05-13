@@ -2,17 +2,20 @@ package com.example.coachfitness_belag.ui.activities
 
 import android.content.Intent
 import android.os.Bundle
+import android.speech.tts.TextToSpeech
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
+import com.bumptech.glide.Glide
 import com.example.coachfitness_belag.R
 import com.example.coachfitness_belag.data.api.RetrofitInstance
 import com.example.coachfitness_belag.data.repository.AppRepository
 import com.example.coachfitness_belag.ui.viewmodel.MainViewModel
 import com.example.coachfitness_belag.utils.TokenManager
+import java.util.*
 
-class LoginActivity : AppCompatActivity() {
+class LoginActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private lateinit var viewModel: MainViewModel
     private lateinit var etEmail: EditText
@@ -20,12 +23,17 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var btnLogin: Button
     private lateinit var tvRegister: TextView
     private lateinit var progressBar: ProgressBar
+    private lateinit var ivLogo: ImageView
+    private var tts: TextToSpeech? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
-        // Check if already logged in - if so, go to scanner for profiling
+        // Initialize TTS
+        tts = TextToSpeech(this, this)
+
+        // Check if already logged in
         if (TokenManager.isLoggedIn()) {
             navigateToScanner()
             return
@@ -35,6 +43,7 @@ class LoginActivity : AppCompatActivity() {
         setupViewModel()
         setupObservers()
         setupClickListeners()
+        loadAvatar()
     }
 
     private fun initViews() {
@@ -43,6 +52,25 @@ class LoginActivity : AppCompatActivity() {
         btnLogin = findViewById(R.id.btnLogin)
         tvRegister = findViewById(R.id.tvRegister)
         progressBar = findViewById(R.id.progressBar)
+        ivLogo = findViewById(R.id.ivLogo)
+    }
+
+    private fun loadAvatar() {
+        Glide.with(this)
+            .asGif()
+            .load("file:///android_asset/avatar/myavatar.gif")
+            .into(ivLogo)
+    }
+
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            tts?.language = Locale.FRENCH
+            speak("Bonjour, veuillez vous authentifier")
+        }
+    }
+
+    private fun speak(text: String) {
+        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
     }
 
     private fun setupViewModel() {
@@ -63,7 +91,6 @@ class LoginActivity : AppCompatActivity() {
 
         viewModel.isLoggedIn.observe(this) { isLoggedIn ->
             if (isLoggedIn) {
-                // After successful login, go to Morphology Scanner
                 navigateToScanner()
             }
         }
@@ -71,6 +98,7 @@ class LoginActivity : AppCompatActivity() {
         viewModel.errorMessage.observe(this) { error ->
             error?.let {
                 Toast.makeText(this, it, Toast.LENGTH_LONG).show()
+                speak(it)
                 viewModel.clearError()
             }
         }
@@ -100,10 +128,6 @@ class LoginActivity : AppCompatActivity() {
             etPassword.error = "Mot de passe requis"
             return false
         }
-        if (password.length < 6) {
-            etPassword.error = "Mot de passe trop court"
-            return false
-        }
         return true
     }
 
@@ -113,10 +137,9 @@ class LoginActivity : AppCompatActivity() {
         finish()
     }
 
-    private fun navigateToDashboard() {
-        val intent = Intent(this, DashboardActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        startActivity(intent)
-        finish()
+    override fun onDestroy() {
+        tts?.stop()
+        tts?.shutdown()
+        super.onDestroy()
     }
 }

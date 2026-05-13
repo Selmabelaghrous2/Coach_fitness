@@ -9,18 +9,18 @@
 
     <!-- Avatar du Coach -->
     <androidx.cardview.widget.CardView
-        android:layout_width="36dp"
-        android:layout_height="36dp"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
         android:layout_marginEnd="8dp"
-        app:cardCornerRadius="18dp"
-        app:cardElevation="0dp">
+        app:cardCornerRadius="20dp"
+        app:cardElevation="2dp">
 
         <ImageView
             android:id="@+id/ivBotAvatar"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:scaleType="centerCrop"
-            android:src="@drawable/bg_circle_red" /> <!-- Remplacez par @drawable/avatarr si vous déplacez l'image -->
+            android:src="@drawable/bg_circle_red" /> <!-- Changé en bg_circle_red pour corriger l'erreur de compilation -->
     </androidx.cardview.widget.CardView>
 
     <TextView

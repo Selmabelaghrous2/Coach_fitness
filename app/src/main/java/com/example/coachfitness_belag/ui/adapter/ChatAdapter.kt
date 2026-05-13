@@ -38,8 +38,8 @@ class ChatAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
             holder.tvMessage.text = message.text
         } else if (holder is BotViewHolder) {
             holder.tvMessage.text = message.text
-            // Si vous avez placé l'image dans res/drawable/avatarr.png :
-            // holder.ivAvatar.setImageResource(R.drawable.avatarr)
+            // Remplacement temporaire de avatarr par bg_circle_red pour permettre la compilation
+            holder.ivAvatar.setImageResource(R.drawable.bg_circle_red)
         }
     }
 

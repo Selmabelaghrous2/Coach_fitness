@@ -19,7 +19,7 @@ object TokenManager {
     }
 
     fun saveToken(token: String) {
-        prefs.edit().putString(KEY_TOKEN, token).commit()
+        prefs.edit().putString(KEY_TOKEN, token).apply()
     }
 
     fun getToken(): String? = prefs.getString(KEY_TOKEN, null)
@@ -30,7 +30,7 @@ object TokenManager {
             .putString(KEY_USER_EMAIL, email)
             .putString(KEY_USER_NAME, name)
             .putBoolean(KEY_IS_LOGGED_IN, true)
-            .commit()
+            .apply()
     }
 
     fun getUserId(): String? = prefs.getString(KEY_USER_ID, null)
@@ -39,6 +39,6 @@ object TokenManager {
     fun isLoggedIn(): Boolean = prefs.getBoolean(KEY_IS_LOGGED_IN, false)
 
     fun clear() {
-        prefs.edit().clear().commit()
+        prefs.edit().clear().apply()
     }
 }

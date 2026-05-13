@@ -58,6 +58,10 @@ dependencies {
     implementation(libs.play.services.maps)
     implementation(libs.play.services.location)
     
+    // Glide for GIF
+    implementation(libs.glide)
+    annotationProcessor(libs.glide.compiler)
+    
     // TensorFlow Lite dependencies
     implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
     implementation("org.tensorflow:tensorflow-lite-metadata:0.4.4")
